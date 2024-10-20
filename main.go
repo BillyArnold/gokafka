@@ -42,9 +42,9 @@ func (avr ApiVersionsResponse) Encode(w io.Writer) error {
 	}
 
 	binary.Write(buf, binary.BigEndian, avr.ThrottleTimeMs)
-	binary.BigEndian.PutUint32(buf.Bytes(), uint32(buf.Len()))
-	fmt.Println(buf.Bytes())
-	return nil
+	binary.BigEndian.PutUint32(buf.Bytes(), uint32(buf.Len()-4))
+	_, err := buf.WriteTo(w)
+	return err
 }
 
 type Header struct {
@@ -61,19 +61,17 @@ type APIVersion struct {
 }
 
 func readAPIVersion(r io.Reader) APIVersion {
-	buf := &bytes.Buffer{}
-
 	var version APIVersion
-	binary.Read(buf, binary.BigEndian, &version.CorrelationID)
+	binary.Read(r, binary.BigEndian, &version.CorrelationID)
 
 	var size int16
-	binary.Read(buf, binary.BigEndian, &size)
+	binary.Read(r, binary.BigEndian, &size)
 	clientID := make([]byte, size)
-	binary.Read(buf, binary.BigEndian, &clientID)
+	binary.Read(r, binary.BigEndian, &clientID)
 
-	binary.Read(buf, binary.BigEndian, &size)
+	binary.Read(r, binary.BigEndian, &size)
 	clientSoftwareName := make([]byte, size)
-	binary.Read(buf, binary.BigEndian, &clientSoftwareName)
+	binary.Read(r, binary.BigEndian, &clientSoftwareName)
 	clientSoftwareVersion, _ := io.ReadAll(r)
 
 	return APIVersion{
@@ -147,10 +145,10 @@ func (s *Server) handleConn(conn net.Conn) {
 					{
 						APIKey:     0,
 						MinVersion: 0,
-						MaxVersion: 0,
+						MaxVersion: 10,
 					},
 				},
-				ThrottleTimeMs: 10,
+				ThrottleTimeMs: 100,
 			}
 			resp.Encode(conn)
 		default:
